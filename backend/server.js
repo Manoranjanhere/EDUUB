@@ -11,12 +11,12 @@ import { dirname } from 'path';
 import mongoose from 'mongoose';
 import Video from './models/Video.js';
 import { HfInference } from '@huggingface/inference';
-import { spawn } from 'child_process'; // Import spawn
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ES Module fixes
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const QA_SCRIPT = path.join(__dirname, 'qa_model.py');
 dotenv.config();
 
@@ -192,6 +192,7 @@ app.get('/videos', async (req, res) => {
   }
 });
 
+
 app.post('/qa', async (req, res) => {
   console.log("Received QA request body:", req.body);
   try {
@@ -204,41 +205,29 @@ app.post('/qa', async (req, res) => {
       console.log("Video not found for ID:", videoId);
       return res.status(404).json({ error: 'Video not found' });
     }
+
     console.log("Video transcript:", video.transcript);
-    // Call Python script for QA
-    const python = spawn('python', [QA_SCRIPT, video.transcript, question], {
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
-    });
 
-    let answer = '';
-    python.stdout.on('data', (data) => {
-      answer += data.toString();
-      console.log("Python stdout:", data.toString()); // Add this line
-    });
-    python.stderr.on('data', (data) => {
-      console.error(`QA Error: ${data}`);
-    });
+    // Use Gemini API to answer the question
+    const model = genAI.getGenerativeModel({ model: "gemini-pro"});
 
-    python.on('close', (code) => {
-      if (code !== 0) {
-        return res.status(500).json({ error: `QA failed with code ${code}` });
-      }
-      console.log("Answer from Python:", answer); // Add this line
+    const prompt = `Answer the following question based on the transcript:
+    Transcript: ${video.transcript}
+    Question: ${question}`;
 
-      try {
-        const result = JSON.parse(answer);
-        res.json({
-          success: true,
-          data: {
-            answer: result.answer,
-            score: result.score,
-            start: result.start,
-            end: result.end
-          }
-        });
-      } catch (error) {
-        console.error("Error parsing QA result:", error);
-        res.status(500).json({ error: "Failed to parse QA result" });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const answer = response.text();
+
+    console.log("Gemini API Response:", answer);
+
+    res.json({
+      success: true,
+      data: {
+        answer: answer,
+        score: 1, // Gemini API doesn't provide a score, so set it to 1
+        start: 0, // Gemini API doesn't provide start/end indices, so set them to 0
+        end: 0
       }
     });
   } catch (error) {

@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/generative-ai": "^0.22.0",
     "@huggingface/inference": "^3.3.0",
     "axios": "^1.7.9",
     "cloudinary": "^1.41.3",
