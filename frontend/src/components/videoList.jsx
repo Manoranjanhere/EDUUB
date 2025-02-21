@@ -20,7 +20,7 @@ const VideoList = () => {
         const text = event.results[0][0].transcript;
         setTranscript(text);
         setIsListening(false);
-        handleVoiceQuery(text);
+        // handleVoiceQuery(text); // REMOVE THIS LINE
       };
 
       recognition.onerror = (event) => {
@@ -51,7 +51,14 @@ const VideoList = () => {
   };
 
   const handleVoiceQuery = async (question) => {
-    if (!selectedVideo || !question) return;
+    console.log("handleVoiceQuery called with question:", question); // ADD THIS LINE
+
+    if (!selectedVideo || !question) {
+      console.log("selectedVideo or question is null/undefined"); // ADD THIS LINE
+      return;
+    }
+  
+    console.log("Sending request with videoId:", selectedVideo._id, "and question:", question);
   
     try {
       console.log("Sending request with videoId:", selectedVideo._id, "and question:", question);
@@ -105,6 +112,12 @@ const VideoList = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (transcript && selectedVideo) {
+      handleVoiceQuery(transcript);
+    }
+  }, [transcript, selectedVideo]);
+
   return (
     <div className="video-container">
       <div className="video-grid">
@@ -139,7 +152,6 @@ const VideoList = () => {
             />
             <div className="modal-info">
               <h2>{selectedVideo.title || 'Untitled Video'}</h2>
-              <p>{selectedVideo.transcript}</p>
               
               <div className="query-section">
                 <button
@@ -160,9 +172,7 @@ const VideoList = () => {
                   <div className="answer-box">
                     <p className="answer-label">Answer:</p>
                     <p>{answer.answer}</p>
-                    <p className="confidence">
-                      Confidence: {answer.score}%
-                    </p>
+                    
                   </div>
                 )}
               </div>

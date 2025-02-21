@@ -10,15 +10,14 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import mongoose from 'mongoose';
 import Video from './models/Video.js';
-import { HfInference } from '@huggingface/inference';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { pipeline } from '@xenova/transformers';
 
+import Groq from "groq-sdk";
+dotenv.config();
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 // ES Module fixes
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const QA_SCRIPT = path.join(__dirname, 'qa_model.py');
-dotenv.config();
 
 const app = express();
 app.use(cors());
@@ -193,8 +192,8 @@ app.get('/videos', async (req, res) => {
 });
 
 
+
 app.post('/qa', async (req, res) => {
-  console.log("Received QA request body:", req.body);
   try {
     const { videoId, question } = req.body;
 
@@ -206,27 +205,23 @@ app.post('/qa', async (req, res) => {
       return res.status(404).json({ error: 'Video not found' });
     }
 
-    console.log("Video transcript:", video.transcript);
+    
+    // Use GroqCloud API to generate the answer
+    const prompt = `You are a teacher. Act as if this video is your own. Answer the following question to the best of your ability, using the video's content as context. If the answer isn't directly in the video, use your expertise to provide a helpful and informative response. Answer the question directly and concisely, without asking any follow-up questions or mentioning the video or transcript.\n\nVideo Transcript: ${video.transcript}\nQuestion: ${question}`;    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "mixtral-8x7b-32768",
+    });
 
-    // Use Gemini API to answer the question
-    const model = genAI.getGenerativeModel({ model: "gemini-pro"});
+    console.log("GroqCloud API Response Data:", chatCompletion.choices[0]?.message?.content);
 
-    const prompt = `Answer the following question based on the transcript:
-    Transcript: ${video.transcript}
-    Question: ${question}`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const answer = response.text();
-
-    console.log("Gemini API Response:", answer);
+    const answer = chatCompletion.choices[0]?.message?.content || "";
 
     res.json({
       success: true,
       data: {
         answer: answer,
-        score: 1, // Gemini API doesn't provide a score, so set it to 1
-        start: 0, // Gemini API doesn't provide start/end indices, so set them to 0
+        score: 1, // Since it's generative, we don't have a score
+        start: 0,
         end: 0
       }
     });
