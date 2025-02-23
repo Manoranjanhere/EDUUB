@@ -12,6 +12,7 @@ import mongoose from 'mongoose';
 import Video from './models/Video.js';
 import Groq from "groq-sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import say from 'say';
 
 dotenv.config();
 const genAI = process.env.GEMINI_API_KEY;
@@ -209,35 +210,43 @@ app.post('/qa', async (req, res) => {
   
     const prompt = `You are a teacher. Act as if this video is your own. Answer the following question to the best of your ability, using the video's content as context. If the answer isn't directly in the video, use your expertise to provide a helpful and informative response. Answer the question directly and concisely, without asking any follow-up questions or mentioning about the video or transcript.\n\nVideo Transcript: ${video.transcript}\nQuestion: ${question}`;
 
-    // const chatCompletion = await groq.chat.completions.create({
-    //   messages: [{ role: "user", content: prompt }],
-    //   model: "mixtral-8x7b-32768",
-    // });
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "mixtral-8x7b-32768",
+    });
 
-    // console.log("GroqCloud API Response Data:", chatCompletion.choices[0]?.message?.content);
+    console.log("GroqCloud API Response Data:", chatCompletion.choices[0]?.message?.content);
 
-    // const answer = chatCompletion.choices[0]?.message?.content || "";
+    const answer = chatCompletion.choices[0]?.message?.content || "";
 
 
     //gemini api
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${genAI}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        "model": "google/gemini-2.0-flash-exp:free",
-        "messages": [{ "role": "user", "content": prompt }]
-      })
-    });
+    // const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    //   method: "POST",
+    //   headers: {
+    //     "Authorization": `Bearer ${genAI}`,
+    //     "Content-Type": "application/json"
+    //   },
+    //   body: JSON.stringify({
+    //     "model": "google/gemini-2.0-flash-exp:free",
+    //     "messages": [{ "role": "user", "content": prompt }]
+    //   })
+    // });
     
-    const data = await response.json();
-    const answer = data.choices?.[0]?.message?.content || "No response received.";
+    // const data = await response.json();
+    // const answer = data.choices?.[0]?.message?.content || "No response received.";
     
 
-    console.log("Gemini API Response Data:", answer);
-   
+    // console.log("Gemini API Response Data:", answer);
+    
+        // Use 'say' to speak the answer
+        say.speak(answer, null, null, (err) => {
+          if (err) {
+            console.error("Error speaking text:", err);
+            return res.status(500).json({ error: "TTS failed" });
+          }
+          console.log("Text spoken successfully");
+        })
 
     res.json({
       success: true,

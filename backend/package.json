@@ -25,6 +25,7 @@
     "multer-storage-cloudinary": "^4.0.0",
     "nodejs-whisper": "^0.2.6",
     "openai": "^4.83.0",
-    "react-speech-recognition": "^3.10.0"
+    "react-speech-recognition": "^3.10.0",
+    "say": "^0.16.0"
   }
 }
