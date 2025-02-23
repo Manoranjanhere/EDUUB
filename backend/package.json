@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google-cloud/text-to-speech": "^5.8.0",
     "@google/generative-ai": "^0.22.0",
     "@huggingface/inference": "^3.3.0",
     "axios": "^1.7.9",

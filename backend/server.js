@@ -4,16 +4,17 @@ import cors from 'cors';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import ffmpeg from 'fluent-ffmpeg';
-import * as fs from 'fs';  
+import * as fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import mongoose from 'mongoose';
 import Video from './models/Video.js';
-import { pipeline } from '@xenova/transformers';
-
 import Groq from "groq-sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 dotenv.config();
+const genAI = process.env.GEMINI_API_KEY;
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 // ES Module fixes
 const __filename = fileURLToPath(import.meta.url);
@@ -99,6 +100,7 @@ const transcribeAudio = (audioPath, language = null) => {
     });
   });
 };
+
 // Routes
 app.post('/upload', upload.single('video'), async (req, res) => {
   const videoPath = req.file.path;
@@ -191,8 +193,6 @@ app.get('/videos', async (req, res) => {
   }
 });
 
-
-
 app.post('/qa', async (req, res) => {
   try {
     const { videoId, question } = req.body;
@@ -205,16 +205,39 @@ app.post('/qa', async (req, res) => {
       return res.status(404).json({ error: 'Video not found' });
     }
 
-    
     // Use GroqCloud API to generate the answer
-    const prompt = `You are a teacher. Act as if this video is your own. Answer the following question to the best of your ability, using the video's content as context. If the answer isn't directly in the video, use your expertise to provide a helpful and informative response. Answer the question directly and concisely, without asking any follow-up questions or mentioning the video or transcript.\n\nVideo Transcript: ${video.transcript}\nQuestion: ${question}`;    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "mixtral-8x7b-32768",
+  
+    const prompt = `You are a teacher. Act as if this video is your own. Answer the following question to the best of your ability, using the video's content as context. If the answer isn't directly in the video, use your expertise to provide a helpful and informative response. Answer the question directly and concisely, without asking any follow-up questions or mentioning about the video or transcript.\n\nVideo Transcript: ${video.transcript}\nQuestion: ${question}`;
+
+    // const chatCompletion = await groq.chat.completions.create({
+    //   messages: [{ role: "user", content: prompt }],
+    //   model: "mixtral-8x7b-32768",
+    // });
+
+    // console.log("GroqCloud API Response Data:", chatCompletion.choices[0]?.message?.content);
+
+    // const answer = chatCompletion.choices[0]?.message?.content || "";
+
+
+    //gemini api
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${genAI}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        "model": "google/gemini-2.0-flash-exp:free",
+        "messages": [{ "role": "user", "content": prompt }]
+      })
     });
+    
+    const data = await response.json();
+    const answer = data.choices?.[0]?.message?.content || "No response received.";
+    
 
-    console.log("GroqCloud API Response Data:", chatCompletion.choices[0]?.message?.content);
-
-    const answer = chatCompletion.choices[0]?.message?.content || "";
+    console.log("Gemini API Response Data:", answer);
+   
 
     res.json({
       success: true,
@@ -230,6 +253,7 @@ app.post('/qa', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 app.delete('/videos/:id', async (req, res) => {
   try {
     const { id } = req.params;
